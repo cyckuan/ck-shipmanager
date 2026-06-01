@@ -1,0 +1,8 @@
+{
+  "name": "ship",
+  "version": "0.1.0",
+  "description": "Ship code changes with a structured git workflow: add, commit, pull --rebase, push",
+  "author": {
+    "name": "Charles Kuan"
+  }
+}

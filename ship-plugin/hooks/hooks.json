@@ -1,0 +1,17 @@
+{
+  "description": "Auto-ship hook: ships uncommitted changes at end of each response when enabled",
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash $CLAUDE_PLUGIN_ROOT/scripts/auto-ship-check.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ]
+  }
+}
