@@ -1,13 +1,25 @@
 {
-  "description": "Auto-ship hook: ships uncommitted changes at end of each response when enabled",
+  "description": "Ship plugin hooks: auto-ship on Stop, swd detection on prompt submit",
   "hooks": {
+    "UserPromptSubmit": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/swd-detect.sh\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
     "Stop": [
       {
         "matcher": "*",
         "hooks": [
           {
             "type": "command",
-            "command": "bash $CLAUDE_PLUGIN_ROOT/scripts/auto-ship-check.sh",
+            "command": "bash \"${CLAUDE_PLUGIN_ROOT}/scripts/auto-ship-check.sh\"",
             "timeout": 10
           }
         ]

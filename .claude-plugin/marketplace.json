@@ -1,0 +1,21 @@
+{
+  "name": "ck-shipmanager",
+  "description": "Fast, no-nonsense code shipping for Claude Code",
+  "owner": {
+    "name": "cyckuan"
+  },
+  "plugins": [
+    {
+      "name": "ship",
+      "source": "./ship-plugin",
+      "description": "Ship code changes with a structured git workflow: add, commit, pull --rebase, push. Auto-ship mode ships at end of every response.",
+      "version": "0.1.0",
+      "author": {
+        "name": "cyckuan"
+      },
+      "repository": "https://github.com/cyckuan/ck-shipmanager",
+      "license": "CC-BY-NC-4.0",
+      "keywords": ["git", "ship", "commit", "push", "workflow", "automation"]
+    }
+  ]
+}

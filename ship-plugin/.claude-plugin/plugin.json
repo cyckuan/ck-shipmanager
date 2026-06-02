@@ -1,8 +1,12 @@
 {
   "name": "ship",
+  "displayName": "Ship",
   "version": "0.1.0",
   "description": "Ship code changes with a structured git workflow: add, commit, pull --rebase, push",
   "author": {
-    "name": "Charles Kuan"
-  }
+    "name": "cyckuan"
+  },
+  "repository": "https://github.com/cyckuan/ck-shipmanager",
+  "license": "CC-BY-NC-4.0",
+  "keywords": ["git", "ship", "commit", "push", "workflow", "automation"]
 }

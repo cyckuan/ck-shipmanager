@@ -20,6 +20,7 @@ Plus automatic housekeeping:
 | `/ship feat add auth` | Ship with explicit message |
 | `/ship on` | Auto-ship at end of every response |
 | `/ship off` | Disable auto-ship |
+| `<prompt> swd` | Ship when done — auto-ships once after task completes |
 
 Also triggers on: "ship it", "ship changes", "send it", "commit and push".
 
@@ -67,7 +68,8 @@ ship-plugin/
 ├── hooks/
 │   └── hooks.json
 ├── scripts/
-│   └── auto-ship-check.sh
+│   ├── auto-ship-check.sh
+│   └── swd-detect.sh
 └── skills/
     └── ship/
         └── SKILL.md

@@ -1,6 +1,6 @@
 ---
 name: ship
-description: This skill should be used when the user asks to "ship changes", "ship it", "commit and push", "send it", "ship my code", "/ship", "/ship on", "/ship off", or wants to stage, commit, and sync their work with the remote. Guides through the full git add → commit → pull --rebase → push shipping sequence.
+description: This skill should be used when the user asks to "ship changes", "ship it", "commit and push", "send it", "ship my code", "/ship", "/ship on", "/ship off", or wants to stage, commit, and sync their work with the remote. Also triggers via "swd" (ship when done) at the end of any prompt. Guides through the full git add → commit → pull --rebase → push shipping sequence.
 argument-hint: "[on|off|type description]"
 allowed-tools: ["Bash", "Read", "Write"]
 ---
@@ -75,6 +75,14 @@ git push
 ```
 
 If rejected, pull --rebase once and retry. If no upstream, use `git push -u origin <branch>`.
+
+## Ship When Done (swd)
+
+Append `swd` to the end of any prompt to auto-ship when the task completes. It's a one-shot — after shipping, auto-ship disables itself.
+
+Example: `add a login page swd`
+
+The `UserPromptSubmit` hook detects "swd" at the end of the prompt, enables autoship in oneshot mode, and the Stop hook ships changes before Claude finishes. No need to manually `/ship` afterward.
 
 ## Auto-Ship Mode
 
