@@ -25,6 +25,7 @@ Verify these files exist at the plugin root. Create missing ones.
 | `README.md` | Yes | Installation, usage, uninstallation instructions |
 | `LICENSE` | Yes | SPDX-compatible license file |
 | `CHANGELOG.md` | Yes | Version history (required if using explicit versions) |
+| `ARCHITECTURE.md` | Yes | Plugin architecture, component layout, data flow |
 | `PRIVACY.md` | Recommended | Data handling disclosure (builds user trust) |
 
 **README.md must include:**
@@ -33,9 +34,25 @@ Verify these files exist at the plugin root. Create missing ones.
 - Uninstallation instructions
 - Usage examples
 - All slash commands / skills / agents listed
+- Estimated token cost (always-on per session + per invocation)
 - External dependencies (if any)
 - License reference
 - OS compatibility statement
+
+**README.md freshness check:**
+- Compare listed commands/skills/agents against actual files in `commands/`, `skills/`, `agents/`
+- Flag any command/skill/agent present on disk but missing from README
+- Flag any command/skill/agent listed in README but not present on disk
+- Verify the directory tree in README matches the actual plugin layout
+- Update if stale — the README must reflect the current state
+
+**ARCHITECTURE.md must include:**
+- Component overview (skills, commands, hooks, scripts and their roles)
+- Data flow (what triggers what, how state is shared)
+- File layout with one-line descriptions per component
+- Hook event lifecycle (which events fire, what each hook does)
+- Configuration mechanism (where state is stored, format)
+- Extension points (how to add new commands/skills)
 
 **PRIVACY.md must include:**
 - What data the plugin accesses (files, git history, network, etc.)
@@ -82,7 +99,59 @@ Fix all errors. Warnings in strict mode also block marketplace acceptance.
 
 ---
 
-### 3. Cross-OS Compatibility Audit
+### 3. Lint and Format
+
+Run linters and formatters on all plugin code. Fix issues inline — no warnings left behind.
+
+**Shell scripts (`.sh`):**
+
+```bash
+# Lint with shellcheck (if available)
+shellcheck -s bash -e SC1091 <script>
+
+# Fix common issues:
+# - Ensure shebang is #!/usr/bin/env bash
+# - Ensure set -euo pipefail on line 2
+# - Remove trailing whitespace
+# - Ensure newline at end of file
+# - Indent with 2 spaces (no tabs)
+```
+
+If `shellcheck` is not installed, manually verify:
+- All variables are quoted: `"$VAR"` not `$VAR`
+- No uninitialized variable access (covered by `set -u`)
+- No word splitting on command substitution: `"$(cmd)"` not `$(cmd)` in string contexts
+- Conditionals use `[[ ]]` not `[ ]`
+
+**JSON files (`.json`):**
+
+```bash
+# Validate and format with jq (if available)
+jq . <file> > <file>.tmp && mv <file>.tmp <file>
+
+# Or validate only:
+python3 -c "import json; json.load(open('<file>'))"
+```
+
+Fix:
+- No trailing commas
+- No comments
+- Consistent 2-space indentation
+- Keys in logical order (name, version, description first in manifests)
+
+**Markdown files (`.md`):**
+
+- No trailing whitespace (except intentional `  ` line breaks)
+- Single newline at end of file
+- No more than one consecutive blank line
+- Headings have blank line before and after
+- Fenced code blocks specify a language
+
+**Apply all fixes before proceeding.** Do not report lint issues without fixing them — the goal is a clean artifact, not a report.
+
+---
+
+### 4. Cross-OS Compatibility Audit
 
 Check every script and hook for portability issues:
 
@@ -113,31 +182,60 @@ Check every script and hook for portability issues:
 
 ---
 
-### 4. Security Audit
+### 5. Security Audit
 
-**Critical checks:**
-- [ ] No secrets, tokens, or credentials in any file
-- [ ] No API keys hardcoded anywhere
-- [ ] No `.env` files included
+Scan every file for vulnerabilities and unsafe practices. Fix issues inline — do not just report them.
+
+**Secrets and credentials:**
+- [ ] No secrets, tokens, API keys, or credentials in any file
+- [ ] No `.env`, `.netrc`, `.npmrc` with tokens included
 - [ ] No user-specific paths hardcoded
-- [ ] Hook scripts cannot execute arbitrary user input without sanitization
-- [ ] No command injection vectors (variables in unquoted command positions)
-- [ ] Shell variables properly quoted: `"$VAR"` not `$VAR`
-- [ ] No `eval` usage with external input
-- [ ] No network calls without user knowledge (document in PRIVACY.md)
 - [ ] `userConfig` fields with `sensitive: true` for any tokens/keys
+- [ ] Run: `grep -rn 'password\|secret\|token\|api_key\|apikey\|auth' --include='*.sh' --include='*.json' --include='*.md'`
+
+**Command injection and shell safety:**
+- [ ] All shell variables double-quoted: `"$VAR"` not `$VAR`
+- [ ] No `eval` usage with external input or user-controlled data
+- [ ] No unquoted command substitution in dangerous positions
+- [ ] No `xargs` without `-d '\n'` on user-controlled input
+- [ ] No `curl | bash` or `wget | sh` patterns
+- [ ] Arguments to `bash -c` do not interpolate unsanitized variables
+- [ ] `read` commands use `-r` flag (no backslash interpretation)
+
+**Unsafe practices:**
+- [ ] No `rm -rf` on variable paths without guard: `[ -n "$VAR" ] && rm -rf "$VAR"`
+- [ ] No `cd` without error check in scripts that later use relative paths
+- [ ] No `cat` of untrusted files piped to `eval` or `source`
+- [ ] No `mktemp` without cleanup trap
+- [ ] No race conditions (TOCTOU) on file checks followed by file operations
+- [ ] No world-writable temp files — use `mktemp` not hardcoded `/tmp/foo`
+- [ ] No `chmod 777` anywhere — scripts use `755` maximum
+- [ ] No `set +e` that suppresses failures silently
+
+**Hook-specific security:**
+- [ ] Hook scripts cannot execute arbitrary user input without sanitization
+- [ ] Stop hooks always output valid JSON even on failure (never raw error text)
+- [ ] Hook timeouts are reasonable (prevent hanging on network calls)
+- [ ] Hooks do not write outside `$CLAUDE_PROJECT_DIR/.claude/` and `$HOME/.claude/`
+
+**Network and exfiltration:**
+- [ ] No network calls without user knowledge (document in PRIVACY.md)
+- [ ] No DNS/HTTP exfiltration of env variables or file contents
+- [ ] No outbound connections to hardcoded third-party hosts
+- [ ] If network is required, fail gracefully when offline
 
 **Plugin agent restrictions (verify compliance):**
 - Agents must NOT use `hooks`, `mcpServers`, or `permissionMode` frontmatter
 - Agents can only use: `name`, `description`, `model`, `effort`, `maxTurns`, `tools`, `disallowedTools`, `skills`, `memory`, `background`, `isolation`
 
-**File permissions:**
-- [ ] No files with excessive permissions (no `777`)
-- [ ] Scripts use `755` or `+x` only
+**Dependency chain:**
+- [ ] No `npm install` or `pip install` at runtime (supply chain risk)
+- [ ] No download-and-execute patterns
+- [ ] If vendoring code, verify source and pin versions
 
 ---
 
-### 5. Token Cost Audit
+### 6. Token Cost Audit
 
 Check projected token cost:
 
@@ -158,7 +256,7 @@ claude plugin details <plugin-name>
 
 ---
 
-### 6. Quality Standards
+### 7. Quality Standards
 
 **Naming:**
 - Plugin name matches `^[a-z0-9]([a-z0-9-]*[a-z0-9])?$`
@@ -181,16 +279,18 @@ claude plugin details <plugin-name>
 
 ---
 
-### 7. Pre-Submission Checklist
+### 8. Pre-Submission Checklist
 
 Before submitting to Anthropic marketplace:
 
 ```
 [ ] claude plugin validate <path> passes cleanly
 [ ] claude plugin validate <path> --strict passes cleanly
-[ ] README.md has install + uninstall + usage + OS support
+[ ] README.md has install + uninstall + usage + token cost + OS support
+[ ] README.md matches actual commands/skills/agents on disk
 [ ] LICENSE file present with valid SPDX license
 [ ] CHANGELOG.md documents current version
+[ ] ARCHITECTURE.md describes component layout and data flow
 [ ] PRIVACY.md describes data handling
 [ ] All hook scripts work on macOS, Linux, and Windows (Git Bash)
 [ ] No secrets or user-specific paths in any file
@@ -203,7 +303,7 @@ Before submitting to Anthropic marketplace:
 
 ---
 
-### 8. Submission
+### 9. Submission
 
 **Community marketplace:**
 - Submit at: `claude.ai/settings/plugins/submit` or `platform.claude.com/plugins/submit`
@@ -217,14 +317,16 @@ Before submitting to Anthropic marketplace:
 
 ---
 
-### 9. Final Report
+### 10. Final Report
 
 After all checks pass, output:
 
 ```
 Package ready: <plugin-name> v<version>
-  Files: plugin.json ✓ | README ✓ | LICENSE ✓ | CHANGELOG ✓ | PRIVACY ✓
+  Files: plugin.json ✓ | README ✓ | LICENSE ✓ | CHANGELOG ✓ | ARCHITECTURE ✓ | PRIVACY ✓
+  README: up-to-date ✓
   Validation: clean (strict) ✓
+  Lint: shell ✓ | json ✓ | markdown ✓
   Cross-OS: macOS ✓ | Linux ✓ | Windows ✓
   Security: no issues ✓
   Token cost: <N> always-on / <N> on-invoke
