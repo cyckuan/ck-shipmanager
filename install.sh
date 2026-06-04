@@ -2,6 +2,7 @@
 set -euo pipefail
 
 PLUGIN_NAME="ship"
+PLUGIN_KEY="$PLUGIN_NAME@local"
 PLUGIN_VERSION="0.1.0"
 SOURCE_DIR="$(cd "$(dirname "$0")/ship-plugin" && pwd)"
 INSTALL_DIR="$HOME/.claude/plugins/local/$PLUGIN_NAME"
@@ -32,37 +33,60 @@ cp -r "$SOURCE_DIR"/scripts "$INSTALL_DIR/"
 [ -f "$SOURCE_DIR/README.md" ] && cp "$SOURCE_DIR/README.md" "$INSTALL_DIR/"
 echo "  Copied plugin files to $INSTALL_DIR"
 
-# Register in installed_plugins.json
+# Register in installed_plugins.json (plugins.<key>)
 if [ -f "$INSTALLED_PLUGINS_FILE" ]; then
-  NOW=$(date -u +"%Y-%m-%dT%H:%M:%S.000Z")
-  UPDATED=$(python3 -c "
-import json, sys
-with open('$INSTALLED_PLUGINS_FILE') as f:
-    data = json.load(f)
-data.setdefault('plugins', {})['$PLUGIN_NAME@local'] = [{
-    'scope': 'user',
-    'installPath': '$INSTALL_DIR',
-    'version': '$PLUGIN_VERSION',
-    'installedAt': '$NOW',
-    'lastUpdated': '$NOW'
+  python3 - "$INSTALLED_PLUGINS_FILE" "$PLUGIN_KEY" "$INSTALL_DIR" "$PLUGIN_VERSION" <<'PY'
+import json, re, sys
+from datetime import datetime, timezone
+
+path, key, install_dir, version = sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4]
+with open(path) as f:
+    raw = f.read()
+data = json.loads(raw)
+
+# Match the file's existing indentation so we don't reformat the whole file.
+m = re.search(r'\n([ \t]+)"', raw)
+indent = m.group(1) if m else "    "
+
+now = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.000Z")
+data.setdefault("plugins", {})[key] = [{
+    "scope": "user",
+    "installPath": install_dir,
+    "version": version,
+    "installedAt": now,
+    "lastUpdated": now,
 }]
-json.dump(data, sys.stdout, indent=4)
-")
-  echo "$UPDATED" > "$INSTALLED_PLUGINS_FILE"
+with open(path, "w") as f:
+    json.dump(data, f, indent=indent)
+    f.write("\n")
+PY
   echo "  Registered in installed_plugins.json"
+else
+  echo "  installed_plugins.json not found (skipped registration)"
 fi
 
-# Enable in settings.json
+# Enable in settings.json (enabledPlugins.<key>)
 if [ -f "$SETTINGS_FILE" ]; then
-  UPDATED=$(python3 -c "
-import json, sys
-with open('$SETTINGS_FILE') as f:
-    data = json.load(f)
-data.setdefault('enabledPlugins', {})['$PLUGIN_NAME@local'] = True
-json.dump(data, sys.stdout, indent=4)
-")
-  echo "$UPDATED" > "$SETTINGS_FILE"
+  python3 - "$SETTINGS_FILE" "$PLUGIN_KEY" <<'PY'
+import json, re, sys
+
+path, key = sys.argv[1], sys.argv[2]
+with open(path) as f:
+    raw = f.read()
+data = json.loads(raw)
+
+# Match the file's existing indentation so we don't reformat the whole file.
+m = re.search(r'\n([ \t]+)"', raw)
+indent = m.group(1) if m else "  "
+
+data.setdefault("enabledPlugins", {})[key] = True
+with open(path, "w") as f:
+    json.dump(data, f, indent=indent)
+    f.write("\n")
+PY
   echo "  Enabled in settings.json"
+else
+  echo "  settings.json not found (skipped enable)"
 fi
 
 echo "Done. Restart Claude Code to activate the /ship command."
